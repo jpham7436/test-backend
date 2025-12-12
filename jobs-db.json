@@ -1,0 +1,20 @@
+[
+  {
+    "id": "185d3502020913d5f389f1db",
+    "title": "Real Job!",
+    "company": "Amazon",
+    "location": "Houston, Texas",
+    "type": "Full Time",
+    "salary": "$120k-$150k",
+    "availability": "Q1 2026",
+    "verdict": "Certified",
+    "verification_score": 0.76,
+    "posted_at": "2025-12-12T07:00:46.668Z",
+    "source_names": [
+      "Amazon"
+    ],
+    "source_urls": [
+      "https://amazon.com"
+    ]
+  }
+]
