@@ -1,0 +1,653 @@
+{
+    "info": {
+        "name": "Job Hunt API - Authentication",
+        "_postman_id": "auth-api-collection",
+        "description": "Complete authentication API collection for the Job Hunt backend with signup, login, and protected routes.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Authentication",
+            "item": [
+                {
+                    "name": "1. Signup - Create New User",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "// Save the token to environment variable for use in other requests",
+                                    "if (pm.response.code === 201) {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.environment.set(\"auth_token\", jsonData.token);",
+                                    "    pm.environment.set(\"user_id\", jsonData.user.id);",
+                                    "    pm.environment.set(\"user_email\", jsonData.user.email);",
+                                    "    console.log(\"Token saved:\", jsonData.token);",
+                                    "}",
+                                    "",
+                                    "// Test assertions",
+                                    "pm.test(\"Status code is 201\", function () {",
+                                    "    pm.response.to.have.status(201);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Response has token\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('token');",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Response has user object\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('user');",
+                                    "    pm.expect(jsonData.user).to.have.property('email');",
+                                    "    pm.expect(jsonData.user).to.not.have.property('password');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"John Doe\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/auth/signup",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "signup"
+                            ]
+                        },
+                        "description": "Create a new user account. Requires email, password (min 6 chars), and optional name."
+                    },
+                    "response": [
+                        {
+                            "name": "Success Response",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"John Doe\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "http://localhost:5000/api/auth/signup",
+                                    "protocol": "http",
+                                    "host": [
+                                        "localhost"
+                                    ],
+                                    "port": "5000",
+                                    "path": [
+                                        "api",
+                                        "auth",
+                                        "signup"
+                                    ]
+                                }
+                            },
+                            "status": "Created",
+                            "code": 201,
+                            "_postman_previewlanguage": "json",
+                            "header": [],
+                            "body": "{\n  \"ok\": true,\n  \"message\": \"User created successfully\",\n  \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"user\": {\n    \"id\": \"user_1234567890\",\n    \"email\": \"john.doe@example.com\",\n    \"name\": \"John Doe\",\n    \"createdAt\": \"2025-12-14T19:06:02.000Z\"\n  }\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "2. Login - Get JWT Token",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "// Save the token to environment variable",
+                                    "if (pm.response.code === 200) {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.environment.set(\"auth_token\", jsonData.token);",
+                                    "    pm.environment.set(\"user_id\", jsonData.user.id);",
+                                    "    pm.environment.set(\"user_email\", jsonData.user.email);",
+                                    "    console.log(\"Token saved:\", jsonData.token);",
+                                    "}",
+                                    "",
+                                    "// Test assertions",
+                                    "pm.test(\"Status code is 200\", function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Response has token\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('token');",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Login successful message\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.message).to.eql('Login successful');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"password123\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/auth/login",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "login"
+                            ]
+                        },
+                        "description": "Login with existing credentials. Returns JWT token valid for 7 days."
+                    },
+                    "response": [
+                        {
+                            "name": "Success Response",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"password123\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "http://localhost:5000/api/auth/login",
+                                    "protocol": "http",
+                                    "host": [
+                                        "localhost"
+                                    ],
+                                    "port": "5000",
+                                    "path": [
+                                        "api",
+                                        "auth",
+                                        "login"
+                                    ]
+                                }
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [],
+                            "body": "{\n  \"ok\": true,\n  \"message\": \"Login successful\",\n  \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"user\": {\n    \"id\": \"user_1234567890\",\n    \"email\": \"john.doe@example.com\",\n    \"name\": \"John Doe\",\n    \"createdAt\": \"2025-12-14T19:06:02.000Z\"\n  }\n}"
+                        },
+                        {
+                            "name": "Invalid Credentials",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"wrongpassword\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "http://localhost:5000/api/auth/login",
+                                    "protocol": "http",
+                                    "host": [
+                                        "localhost"
+                                    ],
+                                    "port": "5000",
+                                    "path": [
+                                        "api",
+                                        "auth",
+                                        "login"
+                                    ]
+                                }
+                            },
+                            "status": "Unauthorized",
+                            "code": 401,
+                            "_postman_previewlanguage": "json",
+                            "header": [],
+                            "body": "{\n  \"error\": \"Invalid email or password\"\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "3. Get Current User (Protected)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Status code is 200\", function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Response has user object\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('user');",
+                                    "    pm.expect(jsonData.user).to.have.property('email');",
+                                    "    pm.expect(jsonData.user).to.not.have.property('password');",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{auth_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/api/auth/me",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "me"
+                            ]
+                        },
+                        "description": "Get current authenticated user information. Requires valid JWT token in Authorization header."
+                    },
+                    "response": [
+                        {
+                            "name": "Success Response",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "http://localhost:5000/api/auth/me",
+                                    "protocol": "http",
+                                    "host": [
+                                        "localhost"
+                                    ],
+                                    "port": "5000",
+                                    "path": [
+                                        "api",
+                                        "auth",
+                                        "me"
+                                    ]
+                                }
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [],
+                            "body": "{\n  \"ok\": true,\n  \"user\": {\n    \"id\": \"user_1234567890\",\n    \"email\": \"john.doe@example.com\",\n    \"name\": \"John Doe\",\n    \"createdAt\": \"2025-12-14T19:06:02.000Z\"\n  }\n}"
+                        },
+                        {
+                            "name": "No Token Provided",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [],
+                                "url": {
+                                    "raw": "http://localhost:5000/api/auth/me",
+                                    "protocol": "http",
+                                    "host": [
+                                        "localhost"
+                                    ],
+                                    "port": "5000",
+                                    "path": [
+                                        "api",
+                                        "auth",
+                                        "me"
+                                    ]
+                                }
+                            },
+                            "status": "Unauthorized",
+                            "code": 401,
+                            "_postman_previewlanguage": "json",
+                            "header": [],
+                            "body": "{\n  \"error\": \"Access token required\"\n}"
+                        }
+                    ]
+                }
+            ],
+            "description": "Authentication endpoints for user signup, login, and profile access."
+        },
+        {
+            "name": "Error Cases",
+            "item": [
+                {
+                    "name": "Signup - Duplicate Email",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"Another User\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/auth/signup",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "signup"
+                            ]
+                        },
+                        "description": "Try to signup with an email that already exists. Should return 400 error."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Signup - Short Password",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"123\",\n  \"name\": \"Test User\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/auth/signup",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "signup"
+                            ]
+                        },
+                        "description": "Try to signup with password less than 6 characters. Should return 400 error."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Login - Wrong Password",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"wrongpassword\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/auth/login",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "login"
+                            ]
+                        },
+                        "description": "Try to login with incorrect password. Should return 401 error."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Login - Non-existent User",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"nonexistent@example.com\",\n  \"password\": \"password123\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/auth/login",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "login"
+                            ]
+                        },
+                        "description": "Try to login with email that doesn't exist. Should return 401 error."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get User - No Token",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/api/auth/me",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "me"
+                            ]
+                        },
+                        "description": "Try to access protected route without token. Should return 401 error."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get User - Invalid Token",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "invalid.token.here",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/api/auth/me",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "me"
+                            ]
+                        },
+                        "description": "Try to access protected route with invalid token. Should return 403 error."
+                    },
+                    "response": []
+                }
+            ],
+            "description": "Test cases for various error scenarios."
+        },
+        {
+            "name": "Jobs API (Examples)",
+            "item": [
+                {
+                    "name": "Get All Jobs",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/api/jobs?page=1&limit=10",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "jobs"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                }
+                            ]
+                        },
+                        "description": "Get list of jobs (public endpoint - no auth required)."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Job by ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/api/jobs/job_00001",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "jobs",
+                                "job_00001"
+                            ]
+                        },
+                        "description": "Get details of a specific job."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Save Job (Could be Protected)",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{auth_token}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/api/saved/job_00001",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "saved",
+                                "job_00001"
+                            ]
+                        },
+                        "description": "Save a job to favorites. You could protect this route with authenticateToken middleware."
+                    },
+                    "response": []
+                }
+            ],
+            "description": "Example job-related endpoints. These could be protected with authentication if needed."
+        }
+    ],
+    "event": [
+        {
+            "listen": "prerequest",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    "// This runs before every request",
+                    "console.log('Making request to:', pm.request.url);"
+                ]
+            }
+        },
+        {
+            "listen": "test",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    "// This runs after every request",
+                    "console.log('Response status:', pm.response.code);"
+                ]
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:5000",
+            "type": "string"
+        },
+        {
+            "key": "auth_token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "user_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "user_email",
+            "value": "",
+            "type": "string"
+        }
+    ]
+}

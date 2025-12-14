@@ -1,1 +1,25 @@
-[]
+[
+  {
+    "id": "user_1765739609318",
+    "email": "demo@example.com",
+    "name": "Demo User",
+    "password": "$2b$10$ZeripscbccrCWMczGzujyeOXudVnW8ja/dYkEw3ftSyWHB9YbpJ9C",
+    "createdAt": "2025-12-14T19:13:29.318Z"
+  },
+  {
+    "id": "user_1765742392040",
+    "email": "company_1765742391@test.com",
+    "name": "Tech Corp",
+    "password": "$2b$10$4ZFp6Hr6Ro49HKIPfbg0zeKRzQs6IMbQYGXTlxs6KuSiG8XD/0qFK",
+    "role": "company",
+    "createdAt": "2025-12-14T19:59:52.040Z"
+  },
+  {
+    "id": "user_1765742392106",
+    "email": "user_1765742392@test.com",
+    "name": "John Doe",
+    "password": "$2b$10$bxP3MPv8iPAfBGPHNd8Kvu28P0Tn1NxM6JCCVjaYNSIrjtJIszAPq",
+    "role": "user",
+    "createdAt": "2025-12-14T19:59:52.106Z"
+  }
+]

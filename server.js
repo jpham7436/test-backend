@@ -2,6 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 const app = express();
 app.use(cors());
@@ -9,6 +11,11 @@ app.use(express.json());
 
 const JOBS_PATH = path.join(__dirname, "jobs-db.json");
 const SAVED_PATH = path.join(__dirname, "saved-db.json");
+const USERS_PATH = path.join(__dirname, "users-db.json");
+
+// JWT Secret - In production, use environment variable
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
+
 
 /* ---------------- Helpers ---------------- */
 
@@ -48,29 +55,29 @@ function mulberry32(seed) {
 }
 
 const COMPANIES = [
-  "Google","Amazon","Microsoft","Apple","Meta","Netflix","Tesla","Stripe","Uber","Airbnb",
-  "Salesforce","Adobe","NVIDIA","Intel","Cisco","Oracle","IBM","Bloomberg","Qualcomm","PayPal",
-  "LinkedIn","Shopify","Twilio","Square","Spotify","OpenAI","Anthropic","Figma","Slack","Asana"
+  "Google", "Amazon", "Microsoft", "Apple", "Meta", "Netflix", "Tesla", "Stripe", "Uber", "Airbnb",
+  "Salesforce", "Adobe", "NVIDIA", "Intel", "Cisco", "Oracle", "IBM", "Bloomberg", "Qualcomm", "PayPal",
+  "LinkedIn", "Shopify", "Twilio", "Square", "Spotify", "OpenAI", "Anthropic", "Figma", "Slack", "Asana"
 ];
 
 const TITLES = [
-  "Software Engineer","Frontend Engineer","Backend Engineer","Full Stack Engineer","Data Analyst",
-  "Data Scientist","Machine Learning Engineer","DevOps Engineer","Cloud Engineer","Security Engineer",
-  "Product Manager","UX Designer","QA Engineer","Mobile Engineer","Site Reliability Engineer"
+  "Software Engineer", "Frontend Engineer", "Backend Engineer", "Full Stack Engineer", "Data Analyst",
+  "Data Scientist", "Machine Learning Engineer", "DevOps Engineer", "Cloud Engineer", "Security Engineer",
+  "Product Manager", "UX Designer", "QA Engineer", "Mobile Engineer", "Site Reliability Engineer"
 ];
 
-const LEVELS = ["Intern","Junior","Associate","Mid","Senior","Staff"];
-const TYPES = ["Internship","Full-time","Part-time","Contract"];
-const MODES = ["Remote","Hybrid","On-site"];
+const LEVELS = ["Intern", "Junior", "Associate", "Mid", "Senior", "Staff"];
+const TYPES = ["Internship", "Full-time", "Part-time", "Contract"];
+const MODES = ["Remote", "Hybrid", "On-site"];
 
 const CITIES = [
-  "San Diego, CA","Los Angeles, CA","San Francisco, CA","Seattle, WA","Austin, TX","New York, NY",
-  "Boston, MA","Denver, CO","Chicago, IL","Atlanta, GA","Irvine, CA","Dallas, TX","Miami, FL"
+  "San Diego, CA", "Los Angeles, CA", "San Francisco, CA", "Seattle, WA", "Austin, TX", "New York, NY",
+  "Boston, MA", "Denver, CO", "Chicago, IL", "Atlanta, GA", "Irvine, CA", "Dallas, TX", "Miami, FL"
 ];
 
 const SKILLS = [
-  "React","Node.js","TypeScript","Python","SQL","AWS","Docker","Kubernetes","Java",
-  "PostgreSQL","MongoDB","Redis","GraphQL","REST APIs","Testing","Linux"
+  "React", "Node.js", "TypeScript", "Python", "SQL", "AWS", "Docker", "Kubernetes", "Java",
+  "PostgreSQL", "MongoDB", "Redis", "GraphQL", "REST APIs", "Testing", "Linux"
 ];
 
 function pick(rng, arr) {
@@ -85,11 +92,11 @@ function buildSalary(rng, type, level) {
   if (type === "Internship") return `$${randInt(rng, 18, 45)}–$${randInt(rng, 46, 70)}/hr`;
   const base =
     level === "Junior" ? [80, 115] :
-    level === "Associate" ? [95, 135] :
-    level === "Mid" ? [115, 165] :
-    level === "Senior" ? [150, 220] :
-    level === "Staff" ? [190, 280] :
-    [25, 35];
+      level === "Associate" ? [95, 135] :
+        level === "Mid" ? [115, 165] :
+          level === "Senior" ? [150, 220] :
+            level === "Staff" ? [190, 280] :
+              [25, 35];
   return `$${base[0]}k–$${base[1]}k`;
 }
 
@@ -139,8 +146,8 @@ function generateJobs(count = 10000, seed = 250) {
 
     const verification_score =
       verdict === "certified" ? randInt(rng, 80, 99) :
-      verdict === "pending" ? randInt(rng, 55, 85) :
-      randInt(rng, 20, 60);
+        verdict === "pending" ? randInt(rng, 55, 85) :
+          randInt(rng, 20, 60);
 
     const salary = buildSalary(rng, type, level);
     const description = buildDescription(rng, title, company, type);
@@ -188,6 +195,41 @@ function readSavedIds() {
   return Array.isArray(data) ? data : [];
 }
 
+function readUsers() {
+  const data = readJson(USERS_PATH, []);
+  return Array.isArray(data) ? data : [];
+}
+
+function writeUsers(users) {
+  writeJson(USERS_PATH, users);
+}
+
+/* ---------------- Authentication Middleware ---------------- */
+
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+  if (!token) {
+    return res.status(401).json({ error: "Access token required" });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: "Invalid or expired token" });
+    }
+    req.user = user; // { userId, email, role }
+    next();
+  });
+}
+
+function requireCompany(req, res, next) {
+  if (!req.user || req.user.role !== 'company') {
+    return res.status(403).json({ error: "Access denied: Company role required" });
+  }
+  next();
+}
+
 /* ---------------- Routes ---------------- */
 
 app.get("/", (req, res) => {
@@ -195,12 +237,153 @@ app.get("/", (req, res) => {
     ok: true,
     service: "jobhunt-api",
     routes: [
+      "/api/auth/signup",
+      "/api/auth/login",
+      "/api/auth/me",
       "/api/jobs",
       "/api/jobs/:id",
       "/api/saved",
       "/api/saved/:id",
       "/api/saved/ids",
     ],
+  });
+});
+
+/* ---------------- Authentication Routes ---------------- */
+
+/**
+ * POST /api/auth/signup
+ * Body: { email, password, name }
+ */
+app.post("/api/auth/signup", async (req, res) => {
+  try {
+    const { email, password, name, role } = req.body;
+
+    // Validate role if provided
+    const validRoles = ['user', 'company'];
+    const userRole = role && validRoles.includes(role) ? role : 'user';
+
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters" });
+    }
+
+    const users = readUsers();
+
+    // Check if user already exists
+    const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (existingUser) {
+      return res.status(400).json({ error: "User already exists with this email" });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create new user
+    const newUser = {
+      id: `user_${Date.now()}`,
+      email: email.toLowerCase(),
+      name: name || email.split('@')[0],
+      password: hashedPassword,
+      role: userRole,
+      createdAt: new Date().toISOString(),
+    };
+
+    users.push(newUser);
+    writeUsers(users);
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { userId: newUser.id, email: newUser.email, role: newUser.role },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Return user without password
+    const { password: _, ...userWithoutPassword } = newUser;
+
+    res.status(201).json({
+      ok: true,
+      message: "User created successfully",
+      token,
+      user: userWithoutPassword,
+    });
+  } catch (error) {
+    console.error("Signup error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * POST /api/auth/login
+ * Body: { email, password }
+ */
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
+
+    const users = readUsers();
+
+    // Find user
+    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (!user) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, role: user.role || 'user' },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Return user without password
+    const { password: _, ...userWithoutPassword } = user;
+
+    res.json({
+      ok: true,
+      message: "Login successful",
+      token,
+      user: userWithoutPassword,
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * GET /api/auth/me
+ * Protected route - requires authentication
+ * Returns current user info
+ */
+app.get("/api/auth/me", authenticateToken, (req, res) => {
+  const users = readUsers();
+  const user = users.find(u => u.id === req.user.userId);
+
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  const { password: _, ...userWithoutPassword } = user;
+  res.json({
+    ok: true,
+    user: userWithoutPassword,
   });
 });
 
@@ -280,7 +463,7 @@ app.get("/api/jobs/:id", (req, res) => {
  * - title, company, location, type, salary, availability
  * - source_urls (array), source_names (array)
  */
-app.post("/api/jobs", (req, res) => {
+app.post("/api/jobs", authenticateToken, requireCompany, (req, res) => {
   const jobs = ensureJobsSeeded();
 
   const title = req.body?.title;
@@ -298,6 +481,7 @@ app.post("/api/jobs", (req, res) => {
 
   const newJob = {
     id: `job_user_${Date.now()}`,
+    postedBy: req.user.userId, // Track who posted it
     title,
     company,
     location,
@@ -323,6 +507,73 @@ app.post("/api/jobs", (req, res) => {
   writeJson(JOBS_PATH, jobs);
 
   res.json({ ok: true, job: newJob });
+});
+
+/**
+ * PUT /api/jobs/:id
+ * Update an existing job (Company only)
+ */
+app.put("/api/jobs/:id", authenticateToken, requireCompany, (req, res) => {
+  const { id } = req.params;
+  const jobs = ensureJobsSeeded();
+
+  const jobIndex = jobs.findIndex(j => j.id === id);
+  if (jobIndex === -1) {
+    return res.status(404).json({ error: "Job not found" });
+  }
+
+  // Check ownership (optional: prevent editing others' jobs unless admin)
+  const existingJob = jobs[jobIndex];
+  if (existingJob.postedBy && existingJob.postedBy !== req.user.userId) {
+    return res.status(403).json({ error: "You can only edit jobs you posted" });
+  }
+
+  // ALLOWED UPDATES
+  const allowedUpdates = [
+    "title", "company", "location", "type", "salary",
+    "availability", "description", "apply_url"
+  ];
+
+  let updated = false;
+  for (const key of allowedUpdates) {
+    if (req.body[key] !== undefined) {
+      existingJob[key] = req.body[key];
+      updated = true;
+    }
+  }
+
+  if (updated) {
+    jobs[jobIndex] = existingJob;
+    writeJson(JOBS_PATH, jobs);
+  }
+
+  res.json({ ok: true, job: existingJob });
+});
+
+/**
+ * DELETE /api/jobs/:id
+ * Delete a job (Company only)
+ */
+app.delete("/api/jobs/:id", authenticateToken, requireCompany, (req, res) => {
+  const { id } = req.params;
+  const jobs = ensureJobsSeeded();
+
+  const jobIndex = jobs.findIndex(j => j.id === id);
+  if (jobIndex === -1) {
+    return res.status(404).json({ error: "Job not found" });
+  }
+
+  // Check ownership
+  const job = jobs[jobIndex];
+  if (job.postedBy && job.postedBy !== req.user.userId) {
+    return res.status(403).json({ error: "You can only delete jobs you posted" });
+  }
+
+  // Remove the job
+  jobs.splice(jobIndex, 1);
+  writeJson(JOBS_PATH, jobs);
+
+  res.json({ ok: true, message: "Job deleted successfully" });
 });
 
 /* ---------- Saved Jobs ---------- */

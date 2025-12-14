@@ -9,3 +9,5 @@ saved-db.json
 
 # logs
 npm-debug.log*
+
+/ReferenceDoc
