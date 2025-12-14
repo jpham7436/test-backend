@@ -1,196 +1,366 @@
-// server.js
-const express = require('express');
-const cors = require('cors');
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+const express = require("express");
+const cors = require("cors");
+const fs = require("fs");
+const path = require("path");
 
 const app = express();
+app.use(cors());
+app.use(express.json());
 
-// --- Basic middleware ---
-app.use(cors());            // allow requests from localhost:3000
-app.use(express.json());    // parse JSON bodies
+const JOBS_PATH = path.join(__dirname, "jobs-db.json");
+const SAVED_PATH = path.join(__dirname, "saved-db.json");
 
-// --- "Database" setup (JSON file on disk) ---
-const DB_FILE = path.join(__dirname, 'jobs-db.json');
+/* ---------------- Helpers ---------------- */
 
-function generateId() {
-  // Simple unique-ish id, no extra deps required
-  return crypto.randomBytes(12).toString('hex');
-}
-
-function seedJobs() {
-  // These mirror your frontend DEMO_JOBS so UI feels consistent
-  const seed = [
-    {
-      id: "demo-1",
-      title: "Frontend Developer",
-      company: "Orbit Labs",
-      location: "San Diego, CA",
-      type: "Full Time",
-      salary: "$95k–$120k",
-      verdict: "Certified",
-      verification_score: 0.88,
-      posted_at: "2025-10-18T12:05:00Z",
-      source_names: ["Company Site", "LinkedIn"],
-      source_urls: ["#", "#"],
-    },
-    {
-      id: "demo-2",
-      title: "Backend Engineer",
-      company: "Pinecone Systems",
-      location: "Remote (US)",
-      type: "Full Time",
-      salary: "$120k–$150k",
-      verdict: "Certified",
-      verification_score: 0.92,
-      posted_at: "2025-10-18T12:05:00Z",
-      source_names: ["Lever", "LinkedIn"],
-      source_urls: ["#", "#"],
-    },
-  ];
-  return seed;
-}
-
-function loadJobsFromDisk() {
+function readJson(filePath, fallback) {
   try {
-    if (fs.existsSync(DB_FILE)) {
-      const raw = fs.readFileSync(DB_FILE, 'utf8');
-      const data = JSON.parse(raw);
-      if (Array.isArray(data)) {
-        return data;
-      }
-    }
-  } catch (err) {
-    console.error('Error reading jobs DB, falling back to seed data:', err);
+    const raw = fs.readFileSync(filePath, "utf-8");
+    const data = JSON.parse(raw);
+    return data ?? fallback;
+  } catch {
+    return fallback;
   }
-  const seeded = seedJobs();
-  saveJobsToDisk(seeded);
-  return seeded;
 }
 
-function saveJobsToDisk(jobs) {
-  fs.writeFile(DB_FILE, JSON.stringify(jobs, null, 2), (err) => {
-    if (err) {
-      console.error('Error writing jobs DB:', err);
-    }
+function writeJson(filePath, value) {
+  fs.writeFileSync(filePath, JSON.stringify(value, null, 2), "utf-8");
+}
+
+function normalize(v) {
+  return String(v || "").toLowerCase().trim();
+}
+
+function googleCareers(company) {
+  const q = encodeURIComponent(`${company || "company"} careers`);
+  return `https://www.google.com/search?q=${q}`;
+}
+
+/* ---------------- Seed Generator ---------------- */
+
+function mulberry32(seed) {
+  let t = seed >>> 0;
+  return function () {
+    t += 0x6d2b79f5;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const COMPANIES = [
+  "Google","Amazon","Microsoft","Apple","Meta","Netflix","Tesla","Stripe","Uber","Airbnb",
+  "Salesforce","Adobe","NVIDIA","Intel","Cisco","Oracle","IBM","Bloomberg","Qualcomm","PayPal",
+  "LinkedIn","Shopify","Twilio","Square","Spotify","OpenAI","Anthropic","Figma","Slack","Asana"
+];
+
+const TITLES = [
+  "Software Engineer","Frontend Engineer","Backend Engineer","Full Stack Engineer","Data Analyst",
+  "Data Scientist","Machine Learning Engineer","DevOps Engineer","Cloud Engineer","Security Engineer",
+  "Product Manager","UX Designer","QA Engineer","Mobile Engineer","Site Reliability Engineer"
+];
+
+const LEVELS = ["Intern","Junior","Associate","Mid","Senior","Staff"];
+const TYPES = ["Internship","Full-time","Part-time","Contract"];
+const MODES = ["Remote","Hybrid","On-site"];
+
+const CITIES = [
+  "San Diego, CA","Los Angeles, CA","San Francisco, CA","Seattle, WA","Austin, TX","New York, NY",
+  "Boston, MA","Denver, CO","Chicago, IL","Atlanta, GA","Irvine, CA","Dallas, TX","Miami, FL"
+];
+
+const SKILLS = [
+  "React","Node.js","TypeScript","Python","SQL","AWS","Docker","Kubernetes","Java",
+  "PostgreSQL","MongoDB","Redis","GraphQL","REST APIs","Testing","Linux"
+];
+
+function pick(rng, arr) {
+  return arr[Math.floor(rng() * arr.length)];
+}
+
+function randInt(rng, min, max) {
+  return Math.floor(rng() * (max - min + 1)) + min;
+}
+
+function buildSalary(rng, type, level) {
+  if (type === "Internship") return `$${randInt(rng, 18, 45)}–$${randInt(rng, 46, 70)}/hr`;
+  const base =
+    level === "Junior" ? [80, 115] :
+    level === "Associate" ? [95, 135] :
+    level === "Mid" ? [115, 165] :
+    level === "Senior" ? [150, 220] :
+    level === "Staff" ? [190, 280] :
+    [25, 35];
+  return `$${base[0]}k–$${base[1]}k`;
+}
+
+function buildDescription(rng, title, company, type) {
+  const s1 = pick(rng, SKILLS);
+  const s2 = pick(rng, SKILLS);
+  const s3 = pick(rng, SKILLS);
+  return `Join ${company} as a ${title}. You'll work with ${s1}, ${s2}, and ${s3} to ship features fast.
+
+Responsibilities:
+- Build and iterate on product features
+- Collaborate with designers + engineers
+- Write clean, testable code
+
+Requirements:
+- Experience with ${s1} or similar
+- Strong communication and ownership
+- Comfortable working in agile teams
+
+Type: ${type}`;
+}
+
+function generateJobs(count = 10000, seed = 250) {
+  const rng = mulberry32(seed);
+  const now = Date.now();
+  const jobs = [];
+
+  for (let i = 1; i <= count; i++) {
+    const company = pick(rng, COMPANIES);
+    const baseTitle = pick(rng, TITLES);
+    const level = pick(rng, LEVELS);
+    const type = pick(rng, TYPES);
+
+    const city = pick(rng, CITIES);
+    const mode = pick(rng, MODES);
+    const location = `${city} (${mode})`;
+
+    const title = level === "Intern" ? `${baseTitle} Intern` : `${level} ${baseTitle}`;
+
+    const daysAgo = randInt(rng, 0, 45);
+    const posted_at = new Date(now - daysAgo * 86400000).toISOString();
+
+    const easyApply = rng() < 0.55;
+
+    const verdictRoll = rng();
+    const verdict = verdictRoll < 0.65 ? "certified" : verdictRoll < 0.9 ? "pending" : "rejected";
+
+    const verification_score =
+      verdict === "certified" ? randInt(rng, 80, 99) :
+      verdict === "pending" ? randInt(rng, 55, 85) :
+      randInt(rng, 20, 60);
+
+    const salary = buildSalary(rng, type, level);
+    const description = buildDescription(rng, title, company, type);
+
+    jobs.push({
+      id: `job_${String(i).padStart(5, "0")}`,
+      title,
+      company,
+      location,
+      type,
+      salary,
+      posted_at,
+      easyApply,
+      verdict,
+      verification_score,
+      description,
+
+      // ✅ IMPORTANT: always exists so Apply works
+      apply_url: googleCareers(company),
+
+      // optional "source_urls" to match your PostJob form if you use it
+      source_urls: [googleCareers(company)],
+      source_names: ["Careers"]
+    });
+  }
+
+  return jobs;
+}
+
+function readJobs() {
+  const data = readJson(JOBS_PATH, []);
+  return Array.isArray(data) ? data : [];
+}
+
+function ensureJobsSeeded() {
+  const jobs = readJobs();
+  if (jobs.length >= 500) return jobs;
+  const generated = generateJobs(10000, 250);
+  writeJson(JOBS_PATH, generated);
+  return generated;
+}
+
+function readSavedIds() {
+  const data = readJson(SAVED_PATH, []);
+  return Array.isArray(data) ? data : [];
+}
+
+/* ---------------- Routes ---------------- */
+
+app.get("/", (req, res) => {
+  res.json({
+    ok: true,
+    service: "jobhunt-api",
+    routes: [
+      "/api/jobs",
+      "/api/jobs/:id",
+      "/api/saved",
+      "/api/saved/:id",
+      "/api/saved/ids",
+    ],
   });
-}
+});
 
-// In-memory cache of jobs, backed by JSON file
-let jobs = loadJobsFromDisk();
+/**
+ * GET /api/jobs
+ * Query:
+ * - search, type, location, certifiedOnly, sort
+ * - page (default 1)
+ * - limit (default 25, max 200)
+ */
+app.get("/api/jobs", (req, res) => {
+  const jobs = ensureJobsSeeded();
 
-// --- Helpers ---
+  const search = normalize(req.query.search);
+  const type = normalize(req.query.type);
+  const location = normalize(req.query.location);
+  const certifiedOnly = normalize(req.query.certifiedOnly) === "true";
+  const sort = normalize(req.query.sort) || "recent";
 
-function createJobFromBody(body) {
-  const {
+  let result = jobs;
+
+  if (search) {
+    result = result.filter((j) => {
+      const t = normalize(j.title);
+      const c = normalize(j.company);
+      const l = normalize(j.location);
+      return t.includes(search) || c.includes(search) || l.includes(search);
+    });
+  }
+
+  if (type) result = result.filter((j) => normalize(j.type) === type);
+  if (location) result = result.filter((j) => normalize(j.location).includes(location));
+  if (certifiedOnly) result = result.filter((j) => normalize(j.verdict) === "certified");
+
+  if (sort === "recent") {
+    result = [...result].sort((a, b) => new Date(b.posted_at || 0) - new Date(a.posted_at || 0));
+  } else if (sort === "score") {
+    result = [...result].sort((a, b) => (b.verification_score || 0) - (a.verification_score || 0));
+  } else if (sort === "company") {
+    result = [...result].sort((a, b) => normalize(a.company).localeCompare(normalize(b.company)));
+  }
+
+  const total = result.length;
+
+  let limit = parseInt(req.query.limit, 10);
+  let page = parseInt(req.query.page, 10);
+  if (Number.isNaN(limit)) limit = 25;
+  if (Number.isNaN(page)) page = 1;
+
+  limit = Math.max(1, Math.min(limit, 200));
+  page = Math.max(1, page);
+
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const start = (page - 1) * limit;
+  const items = result.slice(start, start + limit);
+
+  res.json({
+    total,
+    limit,
+    page,
+    totalPages,
+    jobs: items,
+  });
+});
+
+app.get("/api/jobs/:id", (req, res) => {
+  const jobs = ensureJobsSeeded();
+  const id = String(req.params.id);
+  const job = jobs.find((j) => String(j.id) === id);
+  if (!job) return res.status(404).json({ error: "Job not found" });
+  res.json(job);
+});
+
+/**
+ * POST /api/jobs
+ * Body fields used by your PostJob:
+ * - title, company, location, type, salary, availability
+ * - source_urls (array), source_names (array)
+ */
+app.post("/api/jobs", (req, res) => {
+  const jobs = ensureJobsSeeded();
+
+  const title = req.body?.title;
+  const company = req.body?.company;
+  const location = req.body?.location;
+  const type = req.body?.type || "Full-time";
+  const salary = req.body?.salary || "";
+  const availability = req.body?.availability || "";
+  const source_urls = Array.isArray(req.body?.source_urls) ? req.body.source_urls : [];
+  const source_names = Array.isArray(req.body?.source_names) ? req.body.source_names : [];
+
+  if (!title || !company || !location || !salary) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  const newJob = {
+    id: `job_user_${Date.now()}`,
     title,
     company,
     location,
     type,
     salary,
-    availability,          // optional extra field if your form uses it
-    verdict,
-    verification_score,
-    posted_at,
-    source_names,
+    availability,
+
+    posted_at: new Date().toISOString(),
+    easyApply: false,
+    verdict: "pending",
+    verification_score: 70,
+
+    description: `User posted role at ${company}. Availability: ${availability || "N/A"}`,
+
+    // ✅ IMPORTANT: Apply link always exists
+    apply_url: source_urls[0] || googleCareers(company),
+
     source_urls,
-  } = body || {};
-
-  const nowISO = new Date().toISOString();
-
-  const job = {
-    id: body.id || generateId(),
-    title: String(title || '').trim(),
-    company: String(company || '').trim(),
-    location: location ? String(location).trim() : '',
-    type: type ? String(type).trim() : 'Full Time',
-    salary: salary ? String(salary).trim() : '',
-    availability: availability ? String(availability).trim() : undefined,
-    verdict: verdict ? String(verdict).trim() : 'Certified',
-    verification_score:
-      typeof verification_score === 'number'
-        ? verification_score
-        : // fake a "score" between 0.7–1.0 so it looks realistic
-          Math.round((0.7 + Math.random() * 0.3) * 100) / 100,
-    posted_at: posted_at || nowISO,
-    source_names: Array.isArray(source_names) ? source_names : [],
-    source_urls: Array.isArray(source_urls) ? source_urls : [],
+    source_names,
   };
 
-  return job;
-}
+  jobs.unshift(newJob);
+  writeJson(JOBS_PATH, jobs);
 
-// --- Routes ---
-
-// Health check
-app.get('/', (req, res) => {
-  res.send('✅ Certified Jobs API is running');
+  res.json({ ok: true, job: newJob });
 });
 
-// GET /api/jobs
-// Supports q, location, certified, sort (recent|score) like your frontend
-app.get('/api/jobs', (req, res) => {
-  const { q, location, certified, sort } = req.query;
+/* ---------- Saved Jobs ---------- */
 
-  let list = [...jobs];
-
-  // Filter: certified=true => only certified jobs
-  if (certified === 'true') {
-    list = list.filter(
-      (j) => String(j.verdict || '').toLowerCase() === 'certified'
-    );
-  }
-
-  // Filter: q => matches title + company
-  if (q) {
-    const qLower = String(q).toLowerCase();
-    list = list.filter((j) =>
-      `${j.title || ''} ${j.company || ''}`.toLowerCase().includes(qLower)
-    );
-  }
-
-  // Filter: location => substring match on location
-  if (location) {
-    const locLower = String(location).toLowerCase();
-    list = list.filter((j) =>
-      String(j.location || '').toLowerCase().includes(locLower)
-    );
-  }
-
-  // Sort: by score or most recent
-  list.sort((a, b) => {
-    if (sort === 'score') {
-      return (b.verification_score || 0) - (a.verification_score || 0);
-    }
-    const da = new Date(a.posted_at || 0).getTime();
-    const db = new Date(b.posted_at || 0).getTime();
-    return db - da; // newest first
-  });
-
-  res.json(list);
+app.get("/api/saved/ids", (req, res) => {
+  res.json(readSavedIds());
 });
 
-// POST /api/jobs
-// Body: { title, company, location, type, salary, availability, source_names, source_urls, ... }
-app.post('/api/jobs', (req, res) => {
-  const { title, company } = req.body || {};
-
-  if (!title || !company) {
-    return res.status(400).json({
-      error: 'Both "title" and "company" are required fields.',
-    });
-  }
-
-  const job = createJobFromBody(req.body || {});
-  jobs.push(job);
-  saveJobsToDisk(jobs);
-
-  res.status(201).json(job);
+app.get("/api/saved", (req, res) => {
+  const jobs = ensureJobsSeeded();
+  const savedIds = new Set(readSavedIds().map(String));
+  const savedJobs = jobs.filter((j) => savedIds.has(String(j.id)));
+  res.json(savedJobs);
 });
 
-// --- Start server ---
+app.post("/api/saved/:id", (req, res) => {
+  const id = String(req.params.id);
+  const jobs = ensureJobsSeeded();
+  const exists = jobs.some((j) => String(j.id) === id);
+  if (!exists) return res.status(404).json({ error: "Job not found" });
+
+  const saved = readSavedIds().map(String);
+  if (!saved.includes(id)) saved.push(id);
+  writeJson(SAVED_PATH, saved);
+
+  res.json({ ok: true, savedIds: saved });
+});
+
+app.delete("/api/saved/:id", (req, res) => {
+  const id = String(req.params.id);
+  const saved = readSavedIds().map(String).filter((x) => x !== id);
+  writeJson(SAVED_PATH, saved);
+  res.json({ ok: true, savedIds: saved });
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`✅ API running at http://localhost:${PORT}`);
+  console.log(`✅ Backend running: http://localhost:${PORT}`);
+  console.log(`✅ Jobs endpoint:   http://localhost:${PORT}/api/jobs`);
+  console.log(`✅ Job details:     http://localhost:${PORT}/api/jobs/job_00001`);
 });
