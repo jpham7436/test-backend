@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
-const bcrypt = require("bcryptjs");
+const bcrypt = require("bcryptjs"); // ✅ bcryptjs (NOT bcrypt)
 const jwt = require("jsonwebtoken");
 
 const app = express();
@@ -13,9 +13,10 @@ const JOBS_PATH = path.join(__dirname, "jobs-db.json");
 const SAVED_PATH = path.join(__dirname, "saved-db.json");
 const USERS_PATH = path.join(__dirname, "users-db.json");
 
-// JWT Secret - In production, use environment variable
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
+const JWT_SECRET =
+  process.env.JWT_SECRET || "your-secret-key-change-in-production";
 
+const PORT = process.env.PORT || 5000; // ✅ FIX: PORT is defined
 
 /* ---------------- Helpers ---------------- */
 
@@ -49,21 +50,61 @@ function mulberry32(seed) {
   return function () {
     t += 0x6d2b79f5;
     let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    // ✅ FIX: use r >>> 7 (not t >>> 7)
     r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
     return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
   };
 }
 
 const COMPANIES = [
-  "Google", "Amazon", "Microsoft", "Apple", "Meta", "Netflix", "Tesla", "Stripe", "Uber", "Airbnb",
-  "Salesforce", "Adobe", "NVIDIA", "Intel", "Cisco", "Oracle", "IBM", "Bloomberg", "Qualcomm", "PayPal",
-  "LinkedIn", "Shopify", "Twilio", "Square", "Spotify", "OpenAI", "Anthropic", "Figma", "Slack", "Asana"
+  "Google",
+  "Amazon",
+  "Microsoft",
+  "Apple",
+  "Meta",
+  "Netflix",
+  "Tesla",
+  "Stripe",
+  "Uber",
+  "Airbnb",
+  "Salesforce",
+  "Adobe",
+  "NVIDIA",
+  "Intel",
+  "Cisco",
+  "Oracle",
+  "IBM",
+  "Bloomberg",
+  "Qualcomm",
+  "PayPal",
+  "LinkedIn",
+  "Shopify",
+  "Twilio",
+  "Square",
+  "Spotify",
+  "OpenAI",
+  "Anthropic",
+  "Figma",
+  "Slack",
+  "Asana",
 ];
 
 const TITLES = [
-  "Software Engineer", "Frontend Engineer", "Backend Engineer", "Full Stack Engineer", "Data Analyst",
-  "Data Scientist", "Machine Learning Engineer", "DevOps Engineer", "Cloud Engineer", "Security Engineer",
-  "Product Manager", "UX Designer", "QA Engineer", "Mobile Engineer", "Site Reliability Engineer"
+  "Software Engineer",
+  "Frontend Engineer",
+  "Backend Engineer",
+  "Full Stack Engineer",
+  "Data Analyst",
+  "Data Scientist",
+  "Machine Learning Engineer",
+  "DevOps Engineer",
+  "Cloud Engineer",
+  "Security Engineer",
+  "Product Manager",
+  "UX Designer",
+  "QA Engineer",
+  "Mobile Engineer",
+  "Site Reliability Engineer",
 ];
 
 const LEVELS = ["Intern", "Junior", "Associate", "Mid", "Senior", "Staff"];
@@ -71,13 +112,38 @@ const TYPES = ["Internship", "Full-time", "Part-time", "Contract"];
 const MODES = ["Remote", "Hybrid", "On-site"];
 
 const CITIES = [
-  "San Diego, CA", "Los Angeles, CA", "San Francisco, CA", "Seattle, WA", "Austin, TX", "New York, NY",
-  "Boston, MA", "Denver, CO", "Chicago, IL", "Atlanta, GA", "Irvine, CA", "Dallas, TX", "Miami, FL"
+  "San Diego, CA",
+  "Los Angeles, CA",
+  "San Francisco, CA",
+  "Seattle, WA",
+  "Austin, TX",
+  "New York, NY",
+  "Boston, MA",
+  "Denver, CO",
+  "Chicago, IL",
+  "Atlanta, GA",
+  "Irvine, CA",
+  "Dallas, TX",
+  "Miami, FL",
 ];
 
 const SKILLS = [
-  "React", "Node.js", "TypeScript", "Python", "SQL", "AWS", "Docker", "Kubernetes", "Java",
-  "PostgreSQL", "MongoDB", "Redis", "GraphQL", "REST APIs", "Testing", "Linux"
+  "React",
+  "Node.js",
+  "TypeScript",
+  "Python",
+  "SQL",
+  "AWS",
+  "Docker",
+  "Kubernetes",
+  "Java",
+  "PostgreSQL",
+  "MongoDB",
+  "Redis",
+  "GraphQL",
+  "REST APIs",
+  "Testing",
+  "Linux",
 ];
 
 function pick(rng, arr) {
@@ -89,14 +155,22 @@ function randInt(rng, min, max) {
 }
 
 function buildSalary(rng, type, level) {
-  if (type === "Internship") return `$${randInt(rng, 18, 45)}–$${randInt(rng, 46, 70)}/hr`;
+  if (type === "Internship")
+    return `$${randInt(rng, 18, 45)}–$${randInt(rng, 46, 70)}/hr`;
+
   const base =
-    level === "Junior" ? [80, 115] :
-      level === "Associate" ? [95, 135] :
-        level === "Mid" ? [115, 165] :
-          level === "Senior" ? [150, 220] :
-            level === "Staff" ? [190, 280] :
-              [25, 35];
+    level === "Junior"
+      ? [80, 115]
+      : level === "Associate"
+      ? [95, 135]
+      : level === "Mid"
+      ? [115, 165]
+      : level === "Senior"
+      ? [150, 220]
+      : level === "Staff"
+      ? [190, 280]
+      : [25, 35];
+
   return `$${base[0]}k–$${base[1]}k`;
 }
 
@@ -119,7 +193,7 @@ Requirements:
 Type: ${type}`;
 }
 
-function generateJobs(count = 10000, seed = 250) {
+function generateJobs(count = 25000, seed = 250) {
   const rng = mulberry32(seed);
   const now = Date.now();
   const jobs = [];
@@ -134,7 +208,8 @@ function generateJobs(count = 10000, seed = 250) {
     const mode = pick(rng, MODES);
     const location = `${city} (${mode})`;
 
-    const title = level === "Intern" ? `${baseTitle} Intern` : `${level} ${baseTitle}`;
+    const title =
+      level === "Intern" ? `${baseTitle} Intern` : `${level} ${baseTitle}`;
 
     const daysAgo = randInt(rng, 0, 45);
     const posted_at = new Date(now - daysAgo * 86400000).toISOString();
@@ -142,15 +217,24 @@ function generateJobs(count = 10000, seed = 250) {
     const easyApply = rng() < 0.55;
 
     const verdictRoll = rng();
-    const verdict = verdictRoll < 0.65 ? "certified" : verdictRoll < 0.9 ? "pending" : "rejected";
+    const verdict =
+      verdictRoll < 0.65
+        ? "certified"
+        : verdictRoll < 0.9
+        ? "pending"
+        : "rejected";
 
     const verification_score =
-      verdict === "certified" ? randInt(rng, 80, 99) :
-        verdict === "pending" ? randInt(rng, 55, 85) :
-          randInt(rng, 20, 60);
+      verdict === "certified"
+        ? randInt(rng, 80, 99)
+        : verdict === "pending"
+        ? randInt(rng, 55, 85)
+        : randInt(rng, 20, 60);
 
     const salary = buildSalary(rng, type, level);
     const description = buildDescription(rng, title, company, type);
+
+    const apply = googleCareers(company);
 
     jobs.push({
       id: `job_${String(i).padStart(5, "0")}`,
@@ -165,12 +249,10 @@ function generateJobs(count = 10000, seed = 250) {
       verification_score,
       description,
 
-      // ✅ IMPORTANT: always exists so Apply works
-      apply_url: googleCareers(company),
-
-      // optional "source_urls" to match your PostJob form if you use it
-      source_urls: [googleCareers(company)],
-      source_names: ["Careers"]
+      // ✅ IMPORTANT: always exists
+      apply_url: apply,
+      source_urls: [apply],
+      source_names: ["Careers"],
     });
   }
 
@@ -182,18 +264,77 @@ function readJobs() {
   return Array.isArray(data) ? data : [];
 }
 
-function ensureJobsSeeded() {
-  const jobs = readJobs();
-  if (jobs.length >= 500) return jobs;
-  const generated = generateJobs(10000, 250);
-  writeJson(JOBS_PATH, generated);
-  return generated;
+// ✅ Patch existing/imported jobs missing apply_url (fixes “No apply link”)
+function patchJobsApplyLinks(jobs) {
+  let changed = false;
+
+  const patched = jobs.map((j) => {
+    if (!j) return j;
+
+    const company = j.company || "Company";
+    const hasApply =
+      typeof j.apply_url === "string" && j.apply_url.trim().length > 0;
+
+    if (!hasApply) {
+      const url = googleCareers(company);
+      j.apply_url = url;
+      j.source_urls =
+        Array.isArray(j.source_urls) && j.source_urls.length
+          ? j.source_urls
+          : [url];
+      j.source_names =
+        Array.isArray(j.source_names) && j.source_names.length
+          ? j.source_names
+          : ["Careers"];
+      changed = true;
+    }
+
+    return j;
+  });
+
+  if (changed) writeJson(JOBS_PATH, patched);
+  return patched;
 }
 
-function readSavedIds() {
-  const data = readJson(SAVED_PATH, []);
-  return Array.isArray(data) ? data : [];
+function ensureJobsSeeded() {
+  let jobs = readJobs();
+
+  if (jobs.length < 500) {
+    const generated = generateJobs(25000, 250);
+    writeJson(JOBS_PATH, generated);
+    jobs = generated;
+  }
+
+  jobs = patchJobsApplyLinks(jobs);
+  return jobs;
 }
+
+/* ---------- SAVED: per-user map ---------- */
+// saved-db.json:
+// { "user_123": ["job_00001","job_00002"], "user_456": [] }
+
+function readSavedMap() {
+  const data = readJson(SAVED_PATH, {});
+  return data && typeof data === "object" && !Array.isArray(data) ? data : {};
+}
+
+function writeSavedMap(map) {
+  writeJson(SAVED_PATH, map);
+}
+
+function getSavedIdsForUser(userId) {
+  const map = readSavedMap();
+  const list = map[String(userId)] || [];
+  return Array.isArray(list) ? list.map(String) : [];
+}
+
+function setSavedIdsForUser(userId, ids) {
+  const map = readSavedMap();
+  map[String(userId)] = Array.from(new Set(ids.map(String)));
+  writeSavedMap(map);
+}
+
+/* ---------- USERS ---------- */
 
 function readUsers() {
   const data = readJson(USERS_PATH, []);
@@ -204,28 +345,25 @@ function writeUsers(users) {
   writeJson(USERS_PATH, users);
 }
 
-/* ---------------- Authentication Middleware ---------------- */
+/* ---------------- Auth Middleware ---------------- */
 
 function authenticateToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "Access token required" });
 
-  if (!token) {
-    return res.status(401).json({ error: "Access token required" });
-  }
-
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: "Invalid or expired token" });
-    }
-    req.user = user; // { userId, email, role }
+  jwt.verify(token, JWT_SECRET, (err, payload) => {
+    if (err) return res.status(403).json({ error: "Invalid or expired token" });
+    req.user = payload; // { userId, email, role }
     next();
   });
 }
 
 function requireCompany(req, res, next) {
-  if (!req.user || req.user.role !== 'company') {
-    return res.status(403).json({ error: "Access denied: Company role required" });
+  if (!req.user || req.user.role !== "company") {
+    return res
+      .status(403)
+      .json({ error: "Access denied: Company role required" });
   }
   next();
 }
@@ -243,51 +381,43 @@ app.get("/", (req, res) => {
       "/api/jobs",
       "/api/jobs/:id",
       "/api/saved",
-      "/api/saved/:id",
       "/api/saved/ids",
+      "/api/saved/:id",
     ],
   });
 });
 
-/* ---------------- Authentication Routes ---------------- */
+/* ---------------- Auth Routes ---------------- */
 
-/**
- * POST /api/auth/signup
- * Body: { email, password, name }
- */
 app.post("/api/auth/signup", async (req, res) => {
   try {
     const { email, password, name, role } = req.body;
 
-    // Validate role if provided
-    const validRoles = ['user', 'company'];
-    const userRole = role && validRoles.includes(role) ? role : 'user';
+    const validRoles = ["user", "company"];
+    const userRole = role && validRoles.includes(role) ? role : "user";
 
-    // Validation
-    if (!email || !password) {
+    if (!email || !password)
       return res.status(400).json({ error: "Email and password are required" });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({ error: "Password must be at least 6 characters" });
-    }
+    if (password.length < 6)
+      return res
+        .status(400)
+        .json({ error: "Password must be at least 6 characters" });
 
     const users = readUsers();
+    const existing = users.find(
+      (u) => u.email.toLowerCase() === String(email).toLowerCase()
+    );
+    if (existing)
+      return res
+        .status(400)
+        .json({ error: "User already exists with this email" });
 
-    // Check if user already exists
-    const existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (existingUser) {
-      return res.status(400).json({ error: "User already exists with this email" });
-    }
-
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create new user
     const newUser = {
       id: `user_${Date.now()}`,
-      email: email.toLowerCase(),
-      name: name || email.split('@')[0],
+      email: String(email).toLowerCase(),
+      name: name || String(email).split("@")[0],
       password: hashedPassword,
       role: userRole,
       createdAt: new Date().toISOString(),
@@ -296,14 +426,19 @@ app.post("/api/auth/signup", async (req, res) => {
     users.push(newUser);
     writeUsers(users);
 
-    // Generate JWT token
+    // ✅ ensure new user has its own saved list
+    const savedMap = readSavedMap();
+    if (!savedMap[newUser.id]) {
+      savedMap[newUser.id] = [];
+      writeSavedMap(savedMap);
+    }
+
     const token = jwt.sign(
       { userId: newUser.id, email: newUser.email, role: newUser.role },
       JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: "7d" }
     );
 
-    // Return user without password
     const { password: _, ...userWithoutPassword } = newUser;
 
     res.status(201).json({
@@ -312,47 +447,41 @@ app.post("/api/auth/signup", async (req, res) => {
       token,
       user: userWithoutPassword,
     });
-  } catch (error) {
-    console.error("Signup error:", error);
+  } catch (err) {
+    console.error("Signup error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-/**
- * POST /api/auth/login
- * Body: { email, password }
- */
 app.post("/api/auth/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validation
-    if (!email || !password) {
+    if (!email || !password)
       return res.status(400).json({ error: "Email and password are required" });
-    }
 
     const users = readUsers();
+    const user = users.find(
+      (u) => u.email.toLowerCase() === String(email).toLowerCase()
+    );
+    if (!user) return res.status(401).json({ error: "Invalid email or password" });
 
-    // Find user
-    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (!user) {
-      return res.status(401).json({ error: "Invalid email or password" });
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) return res.status(401).json({ error: "Invalid email or password" });
+
+    // ensure saved entry exists
+    const savedMap = readSavedMap();
+    if (!savedMap[user.id]) {
+      savedMap[user.id] = [];
+      writeSavedMap(savedMap);
     }
 
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
-      return res.status(401).json({ error: "Invalid email or password" });
-    }
-
-    // Generate JWT token
     const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role || 'user' },
+      { userId: user.id, email: user.email, role: user.role || "user" },
       JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: "7d" }
     );
 
-    // Return user without password
     const { password: _, ...userWithoutPassword } = user;
 
     res.json({
@@ -361,39 +490,23 @@ app.post("/api/auth/login", async (req, res) => {
       token,
       user: userWithoutPassword,
     });
-  } catch (error) {
-    console.error("Login error:", error);
+  } catch (err) {
+    console.error("Login error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-/**
- * GET /api/auth/me
- * Protected route - requires authentication
- * Returns current user info
- */
 app.get("/api/auth/me", authenticateToken, (req, res) => {
   const users = readUsers();
-  const user = users.find(u => u.id === req.user.userId);
-
-  if (!user) {
-    return res.status(404).json({ error: "User not found" });
-  }
+  const user = users.find((u) => u.id === req.user.userId);
+  if (!user) return res.status(404).json({ error: "User not found" });
 
   const { password: _, ...userWithoutPassword } = user;
-  res.json({
-    ok: true,
-    user: userWithoutPassword,
-  });
+  res.json({ ok: true, user: userWithoutPassword });
 });
 
-/**
- * GET /api/jobs
- * Query:
- * - search, type, location, certifiedOnly, sort
- * - page (default 1)
- * - limit (default 25, max 200)
- */
+/* ---------------- Jobs ---------------- */
+
 app.get("/api/jobs", (req, res) => {
   const jobs = ensureJobsSeeded();
 
@@ -415,15 +528,23 @@ app.get("/api/jobs", (req, res) => {
   }
 
   if (type) result = result.filter((j) => normalize(j.type) === type);
-  if (location) result = result.filter((j) => normalize(j.location).includes(location));
-  if (certifiedOnly) result = result.filter((j) => normalize(j.verdict) === "certified");
+  if (location)
+    result = result.filter((j) => normalize(j.location).includes(location));
+  if (certifiedOnly)
+    result = result.filter((j) => normalize(j.verdict) === "certified");
 
   if (sort === "recent") {
-    result = [...result].sort((a, b) => new Date(b.posted_at || 0) - new Date(a.posted_at || 0));
+    result = [...result].sort(
+      (a, b) => new Date(b.posted_at || 0) - new Date(a.posted_at || 0)
+    );
   } else if (sort === "score") {
-    result = [...result].sort((a, b) => (b.verification_score || 0) - (a.verification_score || 0));
+    result = [...result].sort(
+      (a, b) => (b.verification_score || 0) - (a.verification_score || 0)
+    );
   } else if (sort === "company") {
-    result = [...result].sort((a, b) => normalize(a.company).localeCompare(normalize(b.company)));
+    result = [...result].sort((a, b) =>
+      normalize(a.company).localeCompare(normalize(b.company))
+    );
   }
 
   const total = result.length;
@@ -433,20 +554,14 @@ app.get("/api/jobs", (req, res) => {
   if (Number.isNaN(limit)) limit = 25;
   if (Number.isNaN(page)) page = 1;
 
-  limit = Math.max(1, Math.min(limit, 200));
+  limit = Math.max(1, Math.min(limit, 500));
   page = Math.max(1, page);
 
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const start = (page - 1) * limit;
   const items = result.slice(start, start + limit);
 
-  res.json({
-    total,
-    limit,
-    page,
-    totalPages,
-    jobs: items,
-  });
+  res.json({ total, limit, page, totalPages, jobs: items });
 });
 
 app.get("/api/jobs/:id", (req, res) => {
@@ -457,159 +572,93 @@ app.get("/api/jobs/:id", (req, res) => {
   res.json(job);
 });
 
-/**
- * POST /api/jobs
- * Body fields used by your PostJob:
- * - title, company, location, type, salary, availability
- * - source_urls (array), source_names (array)
- */
+/* ✅✅✅ ADDITION: POST /api/jobs (Company posts a job) ✅✅✅ */
 app.post("/api/jobs", authenticateToken, requireCompany, (req, res) => {
-  const jobs = ensureJobsSeeded();
+  try {
+    const jobs = ensureJobsSeeded();
 
-  const title = req.body?.title;
-  const company = req.body?.company;
-  const location = req.body?.location;
-  const type = req.body?.type || "Full-time";
-  const salary = req.body?.salary || "";
-  const availability = req.body?.availability || "";
-  const source_urls = Array.isArray(req.body?.source_urls) ? req.body.source_urls : [];
-  const source_names = Array.isArray(req.body?.source_names) ? req.body.source_names : [];
+    const title = req.body?.title;
+    const company = req.body?.company;
+    const location = req.body?.location;
+    const type = req.body?.type || "Full-time";
+    const salary = req.body?.salary || "";
+    const availability = req.body?.availability || "";
+    const source_urls = Array.isArray(req.body?.source_urls) ? req.body.source_urls : [];
+    const source_names = Array.isArray(req.body?.source_names) ? req.body.source_names : [];
 
-  if (!title || !company || !location || !salary) {
-    return res.status(400).json({ error: "Missing required fields" });
-  }
-
-  const newJob = {
-    id: `job_user_${Date.now()}`,
-    postedBy: req.user.userId, // Track who posted it
-    title,
-    company,
-    location,
-    type,
-    salary,
-    availability,
-
-    posted_at: new Date().toISOString(),
-    easyApply: false,
-    verdict: "pending",
-    verification_score: 70,
-
-    description: `User posted role at ${company}. Availability: ${availability || "N/A"}`,
-
-    // ✅ IMPORTANT: Apply link always exists
-    apply_url: source_urls[0] || googleCareers(company),
-
-    source_urls,
-    source_names,
-  };
-
-  jobs.unshift(newJob);
-  writeJson(JOBS_PATH, jobs);
-
-  res.json({ ok: true, job: newJob });
-});
-
-/**
- * PUT /api/jobs/:id
- * Update an existing job (Company only)
- */
-app.put("/api/jobs/:id", authenticateToken, requireCompany, (req, res) => {
-  const { id } = req.params;
-  const jobs = ensureJobsSeeded();
-
-  const jobIndex = jobs.findIndex(j => j.id === id);
-  if (jobIndex === -1) {
-    return res.status(404).json({ error: "Job not found" });
-  }
-
-  // Check ownership (optional: prevent editing others' jobs unless admin)
-  const existingJob = jobs[jobIndex];
-  if (existingJob.postedBy && existingJob.postedBy !== req.user.userId) {
-    return res.status(403).json({ error: "You can only edit jobs you posted" });
-  }
-
-  // ALLOWED UPDATES
-  const allowedUpdates = [
-    "title", "company", "location", "type", "salary",
-    "availability", "description", "apply_url"
-  ];
-
-  let updated = false;
-  for (const key of allowedUpdates) {
-    if (req.body[key] !== undefined) {
-      existingJob[key] = req.body[key];
-      updated = true;
+    if (!title || !company || !location || !salary) {
+      return res.status(400).json({ error: "Missing required fields" });
     }
-  }
 
-  if (updated) {
-    jobs[jobIndex] = existingJob;
+    const apply = source_urls[0] || googleCareers(company);
+
+    const newJob = {
+      id: `job_user_${Date.now()}`,
+      postedBy: req.user.userId,
+      title,
+      company,
+      location,
+      type,
+      salary,
+      availability,
+      posted_at: new Date().toISOString(),
+      easyApply: false,
+      verdict: "pending",
+      verification_score: 70,
+      description: `User posted role at ${company}. Availability: ${availability || "N/A"}`,
+      apply_url: apply,
+      source_urls: source_urls.length ? source_urls : [apply],
+      source_names: source_names.length ? source_names : ["Careers"],
+    };
+
+    jobs.unshift(newJob);
     writeJson(JOBS_PATH, jobs);
-  }
 
-  res.json({ ok: true, job: existingJob });
+    res.status(201).json({ ok: true, job: newJob });
+  } catch (err) {
+    console.error("POST /api/jobs error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
-/**
- * DELETE /api/jobs/:id
- * Delete a job (Company only)
- */
-app.delete("/api/jobs/:id", authenticateToken, requireCompany, (req, res) => {
-  const { id } = req.params;
+/* ---------------- Saved Jobs (PER USER) ---------------- */
+
+app.get("/api/saved/ids", authenticateToken, (req, res) => {
+  res.json(getSavedIdsForUser(req.user.userId));
+});
+
+app.get("/api/saved", authenticateToken, (req, res) => {
   const jobs = ensureJobsSeeded();
-
-  const jobIndex = jobs.findIndex(j => j.id === id);
-  if (jobIndex === -1) {
-    return res.status(404).json({ error: "Job not found" });
-  }
-
-  // Check ownership
-  const job = jobs[jobIndex];
-  if (job.postedBy && job.postedBy !== req.user.userId) {
-    return res.status(403).json({ error: "You can only delete jobs you posted" });
-  }
-
-  // Remove the job
-  jobs.splice(jobIndex, 1);
-  writeJson(JOBS_PATH, jobs);
-
-  res.json({ ok: true, message: "Job deleted successfully" });
-});
-
-/* ---------- Saved Jobs ---------- */
-
-app.get("/api/saved/ids", (req, res) => {
-  res.json(readSavedIds());
-});
-
-app.get("/api/saved", (req, res) => {
-  const jobs = ensureJobsSeeded();
-  const savedIds = new Set(readSavedIds().map(String));
+  const savedIds = new Set(getSavedIdsForUser(req.user.userId).map(String));
   const savedJobs = jobs.filter((j) => savedIds.has(String(j.id)));
   res.json(savedJobs);
 });
 
-app.post("/api/saved/:id", (req, res) => {
+app.post("/api/saved/:id", authenticateToken, (req, res) => {
   const id = String(req.params.id);
   const jobs = ensureJobsSeeded();
   const exists = jobs.some((j) => String(j.id) === id);
   if (!exists) return res.status(404).json({ error: "Job not found" });
 
-  const saved = readSavedIds().map(String);
+  const saved = getSavedIdsForUser(req.user.userId);
   if (!saved.includes(id)) saved.push(id);
-  writeJson(SAVED_PATH, saved);
 
-  res.json({ ok: true, savedIds: saved });
+  setSavedIdsForUser(req.user.userId, saved);
+
+  res.json({ ok: true, savedIds: getSavedIdsForUser(req.user.userId) });
 });
 
-app.delete("/api/saved/:id", (req, res) => {
+app.delete("/api/saved/:id", authenticateToken, (req, res) => {
   const id = String(req.params.id);
-  const saved = readSavedIds().map(String).filter((x) => x !== id);
-  writeJson(SAVED_PATH, saved);
-  res.json({ ok: true, savedIds: saved });
+  const saved = getSavedIdsForUser(req.user.userId).filter((x) => x !== id);
+
+  setSavedIdsForUser(req.user.userId, saved);
+
+  res.json({ ok: true, savedIds: getSavedIdsForUser(req.user.userId) });
 });
 
-const PORT = process.env.PORT || 5000;
+/* ---------------- Start ---------------- */
+
 app.listen(PORT, () => {
   console.log(`✅ Backend running: http://localhost:${PORT}`);
   console.log(`✅ Jobs endpoint:   http://localhost:${PORT}/api/jobs`);
